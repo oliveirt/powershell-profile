@@ -107,15 +107,6 @@ function Update-PSCore
     } -UseMSI"
 }
 
-# this function gets the external IP Address of the callling host
-function Get-MyExternalIP
-{
-    $result = Resolve-DnsName `
-        -Name  myip.opendns.com. `
-        -Server resolver1.opendns.com
-    return $result.IPAddress
-}
-
 # define list of aliases
 $aliases = @{
     chy   = "Copy-HistoryToClipboard"
@@ -127,5 +118,5 @@ $aliases = @{
 
 foreach ($alias in $aliases.GetEnumerator())
 {
-    Set-Alias -Name $alias.Key -Value $alias.Value
+    Set-Alias -Name $alias.Key -Value $alias.Value -Description 'common_profile'
 }
