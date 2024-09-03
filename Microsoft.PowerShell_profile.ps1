@@ -1,3 +1,5 @@
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+
 function prompt
 {
     $currentUser = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent())
@@ -34,8 +36,8 @@ foreach ($script in $profile_scripts)
     . $script
 }
 
-# change directory to HOME
+# change directory to ONEDRIVE/Code folder
 if ($null -eq (Get-Item ENV:VSCODE*))
 {
-    Set-Location $HOME
+    Set-Location "$($env:OneDriveCommercial)\Code"
 }
