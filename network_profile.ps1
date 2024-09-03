@@ -75,6 +75,81 @@ function Test-IPV4AddressToCIDR
     return (([IPAddress]"$IPV4Address").Address -band ($mask.Address)) -eq ([IPAddress]"$subnet").Address
 }
 
+function Get-SSLCertificateFromListeningPort {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string[]]$ComputerName,
+
+        [Parameter(Mandatory=$true)]
+        [string]$Port,
+
+        [Switch]$EnforceClientCertificateValidation
+    )
+
+    try 
+    {	
+        $Connection = New-Object System.Net.Sockets.TcpClient($ComputerName, $Port)	
+        $TLSStream = New-Object System.Net.Security.SslStream($Connection.GetStream())
+
+        if ($EnforceClientCertificateValidation)
+        {
+            # validate certificate endpoint
+            try 
+            {
+                $TLSStream.AuthenticateAsClient($ComputerName)
+                $Status = "Validated"
+            } 
+            catch 
+            {
+                Write-Warning -Message "Certificate validation failed for host '$ComputerName'."
+                Write-Warning -Message $_.Message
+                $Status = "Validation Failed"
+                $Connection.Close
+                Break
+            }
+        }
+
+        # retrieve certificate and basic properties
+        $RemoteCert = New-Object system.security.cryptography.x509certificates.x509certificate2($TLSStream.get_remotecertificate())
+        # advanced properties
+        try { $SAN = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.17' }).Format(0) } catch {}
+        try { $AppPolicies = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '1.3.6.1.4.1.311.21.10' }).Format(0) } catch {}
+        try { $V1TemplateName = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '1.3.6.1.4.1.311.20.2' }).Format(0) } catch {}
+        try { $V2TemplateName = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '1.3.6.1.4.1.311.21.7' }).Format(0) } catch {}
+        try { $SKI = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.14' }).Format(0) } catch {}
+        try { $AKI = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.35' }).Format(0) } catch {}
+        try { $BKU = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.15' }).Format(0) } catch {}
+        try { $EKU = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.37' }).Format(0) } catch {}
+        try { $CDP = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.31' }).Format(0) } catch {}
+        try { $AIA = ($RemoteCert.Extensions | Where-Object { $_.Oid.Value -eq '1.3.6.1.5.5.7.1.1' }).Format(0) } catch {}
+        # return object
+        New-Object -TypeName PSObject -Property ([ordered]@{
+                ComputerName       = $ComputerName
+                Port               = $Port
+                Status             = $Status
+                Subject            = $RemoteCert.Subject
+                SAN                = $SAN
+                FriendlyName       = $RemoteCert.FriendlyName
+                Issuer             = $RemoteCert.Issuer
+                ValidFrom          = $RemoteCert.NotBefore
+                ValidTo            = $RemoteCert.NotAfter
+                Thumbprint         = $RemoteCert.Thumbprint
+                SignatureAlgorithm = $RemoteCert.SignatureAlgorithm.FriendlyName
+                AIA                = $AIA
+                AKI                = $AKI
+                BKU                = $BKU
+                CDP                = $CDP
+                EKU                = $EKU
+                SKI                = $SKI
+                AppPolicies        = $AppPolicies
+                V1TemplateName     = $V1TemplateName
+                V2TemplateName     = $V2TemplateName
+            })
+    }
+    catch { $Status = 'Connection Failed' }
+    finally { $Connection.Close() }
+}
+
 # define list of aliases
 $aliases = @{
     gmip = "Get-MyExternalIP"
